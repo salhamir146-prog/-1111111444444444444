@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست‌کننده آنلاین کلید OpenRouter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Tahoma', 'Segoe UI', sans-serif;
+        }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: #1e293b;
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 540px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            border: 1px solid #334155;
+        }
+        h1 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #38bdf8;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: #0f172a;
+            color: #fff;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #38bdf8;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #0369a1;
+        }
+        button:disabled {
+            background-color: #475569;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            line-height: 1.6;
+        }
+        .success {
+            background-color: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            color: #4ade80;
+        }
+        .error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid #ef4444;
+            color: #f87171;
+        }
+        .response-box {
+            margin-top: 10px;
+            padding: 12px;
+            background: #0f172a;
+            border-radius: 6px;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌐 تست آنلاین OpenRouter API</h1>
+    
+    <div class="form-group">
+        <label for="apiKey">کلید API اوپن‌روتر:</label>
+        <input type="text" id="apiKey" placeholder="sk-or-v1-...">
+    </div>
+
+    <div class="form-group">
+        <label for="modelSelect">انتخاب مدل رایگان (Free):</label>
+        <select id="modelSelect">
+            <option value="deepseek/deepseek-r1:free">DeepSeek R1 (رایگان و فوق‌العاده قوی)</option>
+            <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (رایگان و باکیفیت)</option>
+            <option value="qwen/qwen-2.5-coder-32b-instruct:free">Qwen 2.5 Coder (رایگان مخصوص کدنویسی)</option>
+            <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (نسخه رایگان گوگل روی OpenRouter)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="message">متن پیام جهت ارسال:</label>
+        <textarea id="message" rows="3">سلام! اگر سالمی یک جمله کوتاه و جالب بگو.</textarea>
+    </div>
+
+    <button id="sendBtn" onclick="checkOpenRouterKey()">ارسال پیام و بررسی کلید 🚀</button>
+
+    <div id="resultBox" class="result">
+        <strong id="statusTitle"></strong>
+        <div id="responseContainer" style="display:none;">
+            <p style="margin-top:8px; font-size:0.85rem; color:#94a3b8;">پاسخ دریافتی از هوش مصنوعی:</p>
+            <div id="replyText" class="response-box"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function checkOpenRouterKey() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const selectedModel = document.getElementById('modelSelect').value;
+    const message = document.getElementById('message').value.trim();
+    const sendBtn = document.getElementById('sendBtn');
+    const resultBox = document.getElementById('resultBox');
+    const statusTitle = document.getElementById('statusTitle');
+    const responseContainer = document.getElementById('responseContainer');
+    const replyText = document.getElementById('replyText');
+
+    if (!apiKey) {
+        alert('لطفاً ابتدا کلید API خود را وارد کنید!');
+        return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.innerText = 'در حال ارسال به OpenRouter... ⏳';
+    resultBox.style.display = 'none';
+
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "model": selectedModel,
+                "messages": [
+                    { "role": "user", "content": message || "سلام" }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        resultBox.style.display = 'block';
+
+        if (response.ok && data.choices && data.choices[0].message) {
+            resultBox.className = 'result success';
+            statusTitle.innerText = '✅ کلید اوپن‌روتر سالمه و پاسخ دریافت شد!';
+            replyText.innerText = data.choices[0].message.content;
+            responseContainer.style.display = 'block';
+        } else {
+            resultBox.className = 'result error';
+            const errorMsg = data.error?.message || JSON.stringify(data);
+            statusTitle.innerText = '❌ خطایی رخ داد!';
+            replyText.innerText = `علت خطا: ${errorMsg}`;
+            responseContainer.style.display = 'block';
+        }
+    } catch (err) {
+        resultBox.style.display = 'block';
+        resultBox.className = 'result error';
+        statusTitle.innerText = '❌ خطای شبکه / عدم ارتباط';
+        replyText.innerText = 'امکان برقراری ارتباط با OpenRouter وجود ندارد. از اتصال اینترنت یا ابزار تغییر IP مطمئن شوید.';
+        responseContainer.style.display = 'block';
+    } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerText = 'ارسال پیام و بررسی کلید 🚀';
+    }
+}
+</script>
+
+</body>
+</html>
