@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تست آنلاین تولید عکس فارسی (Hugging Face)</title>
+    <title>تست آنلاین ساخت عکس با متن فارسی</title>
     <style>
         * {
             box-sizing: border-box;
@@ -44,7 +44,7 @@
             font-size: 0.9rem;
             color: #94a3b8;
         }
-        input, textarea {
+        textarea {
             width: 100%;
             padding: 12px;
             border-radius: 8px;
@@ -52,8 +52,9 @@
             background-color: #0f172a;
             color: #fff;
             font-size: 0.95rem;
+            resize: vertical;
         }
-        input:focus, textarea:focus {
+        textarea:focus {
             outline: none;
             border-color: #38bdf8;
         }
@@ -93,15 +94,11 @@
             margin-top: 5px;
             text-align: right;
         }
-        .error {
-            color: #f87171;
-            background: rgba(239, 68, 68, 0.1);
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ef4444;
+        .loading {
             margin-top: 15px;
-            text-align: right;
+            color: #94a3b8;
             font-size: 0.9rem;
+            display: none;
         }
     </style>
 </head>
@@ -111,100 +108,78 @@
     <h1>🎨 ساخت عکس با متن فارسی</h1>
     
     <div class="form-group">
-        <label for="apiKey">کلید API هاگینگ‌فیس (Access Token):</label>
-        <input type="text" id="apiKey" placeholder="hf_...">
-    </div>
-
-    <div class="form-group">
-        <label for="prompt">توصیف عکس به فارسی (یا انگلیسی):</label>
-        <textarea id="prompt" rows="3">یک گربه فضانورد در حال ماهیگیری روی کره ماه، سبک دیجیتال آرت، باکیفیت</textarea>
+        <label for="prompt">توصیف عکس به فارسی:</label>
+        <textarea id="prompt" rows="3">یک گربه فضانورد در حال ماهیگیری روی کره ماه</textarea>
         <div id="translatedText" class="translation-info"></div>
     </div>
 
     <button id="sendBtn" onclick="generateImage()">ساخت عکس 🎨</button>
 
-    <div id="statusText" style="margin-top:15px; color:#94a3b8; font-size:0.9rem;"></div>
+    <div id="loadingText" class="loading">در حال ترجمه و پردازش تصویر... ⏳</div>
 
     <div id="resultArea">
-        <p style="color:#4ade80; font-weight:bold;">✅ عکس با موفقیت ساخته شد:</p>
-        <img id="generatedImage" src="" alt="عکس ساختگی">
+        <p style="color:#4ade80; font-weight:bold; margin-bottom: 5px;">✅ عکس شما آماده شد:</p>
+        <img id="generatedImage" src="" alt="عکس ساخته شده">
     </div>
-
-    <div id="errorBox" class="error" style="display:none;"></div>
 </div>
 
 <script>
-// تابع خودکار ترجمه فارسی به انگلیسی
+// تابع ترجمه خودکار فارسی به انگلیسی
 async function translateToEnglish(text) {
     try {
         const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
         const data = await res.json();
         return data[0][0][0];
     } catch (e) {
-        return text; // اگر ترجمه خطا داد همون متن اصلی رو بفرست
+        return text;
     }
 }
 
 async function generateImage() {
-    const apiKey = document.getElementById('apiKey').value.trim();
     const rawPrompt = document.getElementById('prompt').value.trim();
     const sendBtn = document.getElementById('sendBtn');
-    const statusText = document.getElementById('statusText');
+    const loadingText = document.getElementById('loadingText');
     const resultArea = document.getElementById('resultArea');
     const generatedImage = document.getElementById('generatedImage');
-    const errorBox = document.getElementById('errorBox');
     const translatedText = document.getElementById('translatedText');
 
-    if (!apiKey) {
-        alert('لطفاً ابتدا کلید API خود (hf_...) را وارد کنید!');
+    if (!rawPrompt) {
+        alert('لطفاً متنی برای ساخت عکس وارد کنید!');
         return;
     }
 
     sendBtn.disabled = true;
-    sendBtn.innerText = 'در حال پردازش و ترجمه... ⏳';
-    statusText.innerText = 'در حال ترجمه متن به انگلیسی...';
+    sendBtn.innerText = 'در حال ساخت... ⏳';
+    loadingText.style.display = 'block';
     resultArea.style.display = 'none';
-    errorBox.style.display = 'none';
+    translatedText.innerText = '';
 
-    // ۱. ترجمه خودکار متن فارسی به انگلیسی
+    // ۱. ترجمه متن فارسی به انگلیسی
     const englishPrompt = await translateToEnglish(rawPrompt);
-    translatedText.innerText = `🔍 ترجمه ارسال‌شده به هوش مصنوعی: "${englishPrompt}"`;
+    translatedText.innerText = `🔍 ترجمه شده به انگلیسی: "${englishPrompt}"`;
 
-    statusText.innerText = 'در حال ساخت عکس روی سرورهای Hugging Face...';
+    // ۲. ساخت لینک تصویر و بارگذاری مستقیم (بدون خطای شبکه و بدون نیاز به کلید)
+    const encodedPrompt = encodeURIComponent(englishPrompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true`;
 
-    // ۲. ارسال به مدل FLUX.1
-    const modelUrl = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
-
-    try {
-        const response = await fetch(modelUrl, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ inputs: englishPrompt })
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
-            generatedImage.src = imageUrl;
-            resultArea.style.display = 'block';
-            statusText.innerText = '';
-        } else {
-            const errData = await response.json();
-            errorBox.style.display = 'block';
-            errorBox.innerText = `خطا: ${errData.error || 'ساخت عکس با مشکل مواجه شد.'}`;
-            statusText.innerText = '';
-        }
-    } catch (err) {
-        errorBox.style.display = 'block';
-        errorBox.innerText = 'خطای شبکه! از اتصال اینترنت و فعال بودن ابزار تغییر IP مطمئن شوید.';
-        statusText.innerText = '';
-    } finally {
+    // ۳. بررسی لود شدن عکس
+    const imgTest = new Image();
+    imgTest.src = imageUrl;
+    
+    imgTest.onload = function() {
+        generatedImage.src = imageUrl;
+        resultArea.style.display = 'block';
+        loadingText.style.display = 'none';
         sendBtn.disabled = false;
         sendBtn.innerText = 'ساخت عکس 🎨';
-    }
+    };
+
+    imgTest.onerror = function() {
+        loadingText.style.display = 'none';
+        sendBtn.disabled = false;
+        sendBtn.innerText = 'ساخت عکس 🎨';
+        alert('خطا در دریافت تصویر. لطفاً اتصال اینترنت خود را بررسی کنید.');
+    };
 }
 </script>
 
