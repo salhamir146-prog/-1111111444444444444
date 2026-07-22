@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تست آنلاین OpenRouter API</title>
+    <title>تست‌کننده آنلاین تولید عکس (Hugging Face)</title>
     <style>
         * {
             box-sizing: border-box;
@@ -27,15 +27,16 @@
             max-width: 540px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
             border: 1px solid #334155;
+            text-align: center;
         }
         h1 {
             font-size: 1.4rem;
             margin-bottom: 20px;
-            text-align: center;
             color: #38bdf8;
         }
         .form-group {
             margin-bottom: 15px;
+            text-align: right;
         }
         label {
             display: block;
@@ -43,7 +44,7 @@
             font-size: 0.9rem;
             color: #94a3b8;
         }
-        input, select, textarea {
+        input, textarea {
             width: 100%;
             padding: 12px;
             border-radius: 8px;
@@ -51,9 +52,8 @@
             background-color: #0f172a;
             color: #fff;
             font-size: 0.95rem;
-            transition: border-color 0.2s;
         }
-        input:focus, select:focus, textarea:focus {
+        input:focus, textarea:focus {
             outline: none;
             border-color: #38bdf8;
         }
@@ -76,133 +76,109 @@
             background-color: #475569;
             cursor: not-allowed;
         }
-        .result {
+        #resultArea {
             margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
             display: none;
-            line-height: 1.6;
         }
-        .success {
-            background-color: rgba(34, 197, 94, 0.1);
-            border: 1px solid #22c55e;
-            color: #4ade80;
+        #generatedImage {
+            max-width: 100%;
+            border-radius: 12px;
+            border: 2px solid #38bdf8;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .error {
-            background-color: rgba(239, 68, 68, 0.1);
-            border: 1px solid #ef4444;
             color: #f87171;
-        }
-        .response-box {
-            margin-top: 10px;
-            padding: 12px;
-            background: #0f172a;
-            border-radius: 6px;
-            color: #e2e8f0;
-            white-space: pre-wrap;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ef4444;
+            margin-top: 15px;
+            text-align: right;
             font-size: 0.9rem;
-            max-height: 300px;
-            overflow-y: auto;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🌐 تست آنلاین OpenRouter API</h1>
+    <h1>🎨 ساخت عکس با کلید Hugging Face</h1>
     
     <div class="form-group">
-        <label for="apiKey">کلید API اوپن‌روتر:</label>
-        <input type="text" id="apiKey" placeholder="sk-or-v1-...">
+        <label for="apiKey">کلید API هاگینگ‌فیس (Access Token):</label>
+        <input type="text" id="apiKey" placeholder="hf_...">
     </div>
 
     <div class="form-group">
-        <label for="modelSelect">انتخاب مدل رایگان:</label>
-        <select id="modelSelect">
-            <option value="openai/gpt-oss-20b:free">GPT-OSS 20B (رایگان)</option>
-            <option value="google/gemini-3.1-flash:free">Gemini 3.1 Flash (جما ۳۱۴)</option>
-            <option value="meta-llama/llama-3-8b-instruct:free">Llama 3 (لاگونا / لاما)</option>
-            <option value="google/gemini-nano:free">Gemini Nano (مای نانو)</option>
-            <option value="mistralai/mistral-2-lite:free">Mistral 2 Lite (موز ۲ لایت)</option>
-            <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (پایدار و پرقدرت)</option>
-        </select>
+        <label for="prompt">توصیف عکس به انگلیسی (Prompt):</label>
+        <textarea id="prompt" rows="3">A futuristic neon city at night, cyber style, high resolution, 8k</textarea>
     </div>
 
-    <div class="form-group">
-        <label for="message">متن پیام جهت ارسال:</label>
-        <textarea id="message" rows="3">سلام! اگر سالمی یک جمله کوتاه و جالب بگو.</textarea>
+    <button id="sendBtn" onclick="generateImage()">ساخت عکس 🎨</button>
+
+    <div id="statusText" style="margin-top:15px; color:#94a3b8; font-size:0.9rem;"></div>
+
+    <div id="resultArea">
+        <p style="color:#4ade80; font-weight:bold;">✅ عکس با موفقیت ساخته شد:</p>
+        <img id="generatedImage" src="" alt="عکس ساختگی">
     </div>
 
-    <button id="sendBtn" onclick="checkOpenRouterKey()">ارسال پیام و بررسی کلید 🚀</button>
-
-    <div id="resultBox" class="result">
-        <strong id="statusTitle"></strong>
-        <div id="responseContainer" style="display:none;">
-            <p style="margin-top:8px; font-size:0.85rem; color:#94a3b8;">پاسخ دریافتی از هوش مصنوعی:</p>
-            <div id="replyText" class="response-box"></div>
-        </div>
-    </div>
+    <div id="errorBox" class="error" style="display:none;"></div>
 </div>
 
 <script>
-async function checkOpenRouterKey() {
+async function generateImage() {
     const apiKey = document.getElementById('apiKey').value.trim();
-    const selectedModel = document.getElementById('modelSelect').value;
-    const message = document.getElementById('message').value.trim();
+    const prompt = document.getElementById('prompt').value.trim();
     const sendBtn = document.getElementById('sendBtn');
-    const resultBox = document.getElementById('resultBox');
-    const statusTitle = document.getElementById('statusTitle');
-    const responseContainer = document.getElementById('responseContainer');
-    const replyText = document.getElementById('replyText');
+    const statusText = document.getElementById('statusText');
+    const resultArea = document.getElementById('resultArea');
+    const generatedImage = document.getElementById('generatedImage');
+    const errorBox = document.getElementById('errorBox');
 
     if (!apiKey) {
-        alert('لطفاً ابتدا کلید API خود را وارد کنید!');
+        alert('لطفاً ابتدا کلید API خود (hf_...) را وارد کنید!');
         return;
     }
 
     sendBtn.disabled = true;
-    sendBtn.innerText = 'در حال ارسال به OpenRouter... ⏳';
-    resultBox.style.display = 'none';
+    sendBtn.innerText = 'در حال ساخت عکس (ممکن است ۱۰ تا ۲۰ ثانیه طول بکشد)... ⏳';
+    statusText.innerText = 'در حال پردازش روی سرورهای Hugging Face...';
+    resultArea.style.display = 'none';
+    errorBox.style.display = 'none';
+
+    // استفاده از مدل فوق‌العاده قوی FLUX.1
+    const modelUrl = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
 
     try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await fetch(modelUrl, {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                "model": selectedModel,
-                "messages": [
-                    { "role": "user", "content": message || "سلام" }
-                ]
-            })
+            body: JSON.stringify({ inputs: prompt })
         });
 
-        const data = await response.json();
-        resultBox.style.display = 'block';
-
-        if (response.ok && data.choices && data.choices[0].message) {
-            resultBox.className = 'result success';
-            statusTitle.innerText = '✅ کلید اوپن‌روتر سالمه و پاسخ دریافت شد!';
-            replyText.innerText = data.choices[0].message.content;
-            responseContainer.style.display = 'block';
+        if (response.ok) {
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            generatedImage.src = imageUrl;
+            resultArea.style.display = 'block';
+            statusText.innerText = '';
         } else {
-            resultBox.className = 'result error';
-            const errorMsg = data.error?.message || JSON.stringify(data);
-            statusTitle.innerText = '❌ خطایی رخ داد!';
-            replyText.innerText = `علت خطا: ${errorMsg}`;
-            responseContainer.style.display = 'block';
+            const errData = await response.json();
+            errorBox.style.display = 'block';
+            errorBox.innerText = `خطا: ${errData.error || 'ساخت عکس با مشکل مواجه شد.'}`;
+            statusText.innerText = '';
         }
     } catch (err) {
-        resultBox.style.display = 'block';
-        resultBox.className = 'result error';
-        statusTitle.innerText = '❌ خطای شبکه / عدم ارتباط';
-        replyText.innerText = 'امکان برقراری ارتباط با OpenRouter وجود ندارد. از اتصال اینترنت یا ابزار تغییر IP مطمئن شوید.';
-        responseContainer.style.display = 'block';
+        errorBox.style.display = 'block';
+        errorBox.innerText = 'خطای شبکه! از اتصال اینترنت و فعال بودن ابزار تغییر IP مطمئن شوید.';
+        statusText.innerText = '';
     } finally {
         sendBtn.disabled = false;
-        sendBtn.innerText = 'ارسال پیام و بررسی کلید 🚀';
+        sendBtn.innerText = 'ساخت عکس 🎨';
     }
 }
 </script>
